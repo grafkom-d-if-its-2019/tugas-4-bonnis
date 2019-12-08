@@ -23,29 +23,64 @@
       [0.5,-0.5,-0.5],
     ];
 
-    var cubeColor=[
+    var cubeColors=[
       [],
-      [1.0, 1.0, 0.0],
-      [0.5, 0.5, 0.0],
-      [1.0, 1.0, 0.0],
-      [0.5, 0.5, 0.0],
-      [1.0, 1.0, 0.0],
-      [0.5, 0.5, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
     ]
 
+    var cubeNormals = [
+      [],
+      [0.0, 0.0, -1.0], // depan
+      [-1.0, 0.0, 0.0], // kanan
+      [0.0, 1.0, 0.0], // bawah
+      [0.0, 0.0, 1.0], // belakang
+      [1.0, 0.0, 0.0], // kiri
+      [0.0, -1.0, 0.0], // atas
+      []
+    ];
+
     function quad(a, b, c, d){
-      var indices = [a, b, b, c, c, d, d, a];
-      for(var i=0; i<indices.length; i++){
-        for(var j=0; j<3; j++){
+      var indices = [a, b, c, a, c, d];
+      for (var i=0; i < indices.length; i++) {
+        for (var j=0; j < 3; j++) {
           cubeVertices.push(cubePoints[indices[i]][j]);
         }
-        for(var j=0; j<3;j++){
-          cubeVertices.push(cubeColor[a][j]);
+        for (var j=0; j < 3; j++) {
+          cubeVertices.push(cubeColors[a][j]);
+        }
+        for (var j=0; j < 3; j++) {
+          cubeVertices.push(cubeNormals[a][j]);
+        }
+        switch (indices[i]) {
+          case a:
+            cubeVertices.push((a - 2) * 0.125);
+            cubeVertices.push(0.0);
+            break;
+          case b:
+            cubeVertices.push((a - 2) * 0.125);
+            cubeVertices.push(1.0);
+            break;
+          case c:
+            cubeVertices.push((a - 1) * 0.125);
+            cubeVertices.push(1.0);
+            break;
+          case d:
+            cubeVertices.push((a - 1) * 0.125);
+            cubeVertices.push(0.0);
+            break;
+
+          default:
+            break;
         }
       }
     }
 
-    quad(1,0,3,2)
+    // quad(1,0,3,2)
     quad(2,3,7,6)
     quad(3,0,4,7)
     quad(4,5,6,7)
@@ -336,24 +371,44 @@ makeLetterFace()
       
       var vPosition = gl.getAttribLocation(program, 'vPosition');
       var vColor = gl.getAttribLocation(program, 'vColor');
+      var vNormal = gl.getAttribLocation(program, "vNormal");
+      var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
       gl.vertexAttribPointer(
         vPosition,  //Variabel yang memegang attribut posisi di shader
         3,          //jumlah elemen per atribut
         gl.FLOAT,   //tipe data atribut
         gl.FALSE,   // apa ini
-        6 * Float32Array.BYTES_PER_ELEMENT, //ukurab byte tiap verteks
+        11 * Float32Array.BYTES_PER_ELEMENT, //ukurab byte tiap verteks
         0 //offset dari posisi elemen
       );
-      gl.vertexAttribPointer(vColor, 3, gl.FLOAT, gl.FALSE, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+      gl.vertexAttribPointer(vColor, 3, gl.FLOAT, gl.FALSE, 11 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+      gl.vertexAttribPointer(
+        vNormal,
+        3,
+        gl.FLOAT,
+        gl.FALSE,
+        11 * Float32Array.BYTES_PER_ELEMENT,
+        6 * Float32Array.BYTES_PER_ELEMENT
+      );
+      gl.vertexAttribPointer(
+        vTexCoord,
+        2,
+        gl.FLOAT,
+        gl.FALSE,
+        11 * Float32Array.BYTES_PER_ELEMENT,
+        9 * Float32Array.BYTES_PER_ELEMENT
+      );
       gl.enableVertexAttribArray(vPosition);
       gl.enableVertexAttribArray(vColor);
+      gl.enableVertexAttribArray(vNormal);
+      gl.enableVertexAttribArray(vTexCoord);
     }
 
     function initLetterBuffers(nm){
       var vertexBufferObject = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferObject);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(letterVertices), gl.STATIC_DRAW);
-      
+      dd = glMatrix.vec3.fromValues(0.0, 0.0, 0.1);
       var vPosition = gl.getAttribLocation(program, 'vPosition');
       var vColor = gl.getAttribLocation(program, 'vColor');
       gl.vertexAttribPointer(
@@ -403,6 +458,41 @@ makeLetterFace()
     var vm = glMatrix.mat4.create();
     var pmLoc = gl.getUniformLocation(program, 'projectionMatrix');
     var pm = glMatrix.mat4.create();
+
+    // Kontrol menggunakan mouse
+    var lastMousePosition = {
+        x: 0,
+        y: 0
+      };
+      var isDragging = false;
+      function onMouseDown(event) {
+        isDragging = true;
+      }
+      function toRadians(angle) {
+        return angle * (Math.PI / 180);
+      }
+      function onMouseMove(event) {
+        event.preventDefault();
+        deltaMove = {
+          x: event.x - lastMousePosition.x,
+          y: event.y - lastMousePosition.y
+        };
+        if (isDragging) {
+          glMatrix.mat4.rotateX(nm, nm, toRadians(deltaMove.y));
+          glMatrix.mat4.rotateY(nm, nm, toRadians(deltaMove.x));
+        }
+        lastMousePosition = {
+          x: event.x,
+          y: event.y
+        };
+      }
+      function onMouseUp(event) {
+        event.preventDefault();
+        isDragging = false;
+      }
+      document.addEventListener("mousedown", onMouseDown);
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
     
 
     glMatrix.mat4.perspective(pm,
@@ -489,6 +579,19 @@ makeLetterFace()
         }
     }
 
+    var dcLoc = gl.getUniformLocation(program, 'diffuseColor');
+    var dc = glMatrix.vec3.fromValues(1.0, 1.0, 1.0);  // rgb
+    gl.uniform3fv(dcLoc, dc);
+    var ddLoc = gl.getUniformLocation(program, 'diffusePosition');
+    var acLoc = gl.getUniformLocation(program, 'ambientColor');
+    var ac = glMatrix.vec3.fromValues(0.17, 0.40, 0.75);
+    gl.uniform3fv(acLoc, ac);
+
+    var nomLoc = gl.getUniformLocation(program, 'normalMatrix');
+
+    var dd = glMatrix.vec3.fromValues(0.0, 0.0, 0.05);
+    gl.uniform3fv(ddLoc, dd);
+
     function render() {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);  
 
@@ -504,6 +607,10 @@ makeLetterFace()
       if(axis[1]) glMatrix.mat4.rotateY(nm, nm, thetaSpeed);
       if(axis[2]) glMatrix.mat4.rotateX(nm, nm, thetaSpeed);
       // glMatrix.mat4.translate(nm,nm, [0.0,0.0,-2.0]);
+
+      var nom = glMatrix.mat3.create();
+      glMatrix.mat3.normalFromMat4(nom, nm);
+      gl.uniformMatrix3fv(nomLoc, false, nom);
       
       var temp = glMatrix.mat4.clone(nm);
       initLetterBuffers();
@@ -516,8 +623,12 @@ makeLetterFace()
       rot+=rotSpeed;
 
       glMatrix.mat4.translate(nm,nm, [xOff,yOff,zOff]);
+      glMatrix.vec3.add(dd,dd, [xOff,yOff,zOff]);
+      glMatrix.vec3.multiply(dd,dd,[0.25,0.25,0.25]);
+      // console.log(dd)
       glMatrix.mat4.rotateY(nm,nm,rot);
       gl.uniformMatrix4fv(nmloc, false, nm);
+      gl.uniform3fv(ddLoc, dd);
       gl.drawArrays(gl.TRIANGLES, 0, totalVertices);
 
       currentCollPoints =[];
@@ -543,7 +654,7 @@ makeLetterFace()
       planes.top = [currentCubePoints[1],currentCubePoints[2],currentCubePoints[6]]
       planes.bottom = [currentCubePoints[0],currentCubePoints[3],currentCubePoints[7]]
       gl.uniformMatrix4fv(nmloc, false, nm);
-      gl.drawArrays(gl.LINES, 0, 48); 
+      gl.drawArrays(gl.TRIANGLES, 0, 36); 
 
       
 
@@ -556,6 +667,45 @@ makeLetterFace()
     }
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST)
+
+    // Uniform untuk tekstur
+    var sampler0Loc = gl.getUniformLocation(program, "sampler0");
+    gl.uniform1i(sampler0Loc, 0);
+
+    // Create a texture.
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Fill the texture with a 1x1 blue pixel.
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 255, 255])
+    );
+
+    // Asynchronously load an image
+    var image = new Image();
+    image.src = "images/texture.png";
+    image.addEventListener("load", function() {
+      // Now that the image has loaded make copy it to the texture.
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image
+      );
+      gl.generateMipmap(gl.TEXTURE_2D);
+    });
+
     render();
 
   }
